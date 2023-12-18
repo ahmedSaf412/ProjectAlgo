@@ -1,163 +1,162 @@
 #include <iostream>
 #include <fstream>
-#include <list>
+#include <sstream>
 #include <vector>
-#include <cstdlib>
-#include <ctime>
-#include <algorithm>
-#include <set>
-
+#include <list>
+#include <algorithm> // Added for std::sort
+#include <string>
 using namespace std;
 
 class Graph {
-public:
-    Graph(int vertices);
-    void addEdge(int src, int dest);
-    void displayGraph();
-    const list<int>& getAdjList(int vertex) const; // New function to access adjList
-
 private:
-    int numVertices;
-    list<int>* adjList; // Pointer to an array containing adjacency lists
+    // No. of vertices
+    int V;
+
+    // Pointer to an array containing adjacency lists
+    vector<list<int>> followings;
+    vector<list<int>> followers;
+
+public:
+    // Constructor
+    Graph(int V);
+
+    // Function to add an edge to the graph
+    void addEdge(int src, int dist);
+
+    // Function to sort rich people based on followers count
+    void sortRichPeople();
+    void mergeSort(vector<int>& followers, int l, int r);
+    void merge(vector<int>& followers, int l, int m, int r);
+
+    void TopInfluencers(int TopSelected);
 };
 
-const list<int>& Graph::getAdjList(int vertex) const {
-    return adjList[vertex];
+Graph::Graph(int V) {
+    this->V = V;
+    followings.resize(V);
+    followers.resize(V);
 }
 
-
-Graph::Graph(int vertices) {
-    numVertices = vertices;
-    adjList = new list<int>[vertices];
+void Graph::addEdge(int src, int dist) {
+    // Add dist to src's list of followings
+    followings[src].push_back(dist);
+    // Add src to dist's list of followers
+    followers[dist].push_back(src);
 }
 
-void Graph::addEdge(int src, int dest) {
-    // Check if source and destination vertices are within the valid range
-    if (src >= 0 && src < numVertices && dest >= 0 && dest < numVertices) {
-        // Add an edge from source to destination
-        adjList[src].push_back(dest);
-    } else {
-        cerr << "Invalid vertices: (" << src << ", " << dest << ")" << endl;
+void Graph::merge(vector<int>& followers, int l, int m, int r) {
+    int n1 = m - l + 1;
+    int n2 = r - m;
+
+    vector<int> L(n1), R(n2);
+
+    for (int i = 0; i < n1; i++) {
+        L[i] = followers[l + i];
+    }
+
+    for (int j = 0; j < n2; j++) {
+        R[j] = followers[m + 1 + j];
+    }
+
+    int i = 0, j = 0, k = l;
+
+    while (i < n1 && j < n2) {
+        if (L[i] >= R[j]) {
+            followers[k] = L[i];
+            i++;
+        }
+        else {
+            followers[k] = R[j];
+            j++;
+        }
+        k++;
+    }
+
+    while (i < n1) {
+        followers[k] = L[i];
+        i++;
+        k++;
+    }
+
+    while (j < n2) {
+        followers[k] = R[j];
+        j++;
+        k++;
     }
 }
 
-void Graph::displayGraph() {
-    for (int i = 0; i < numVertices; ++i) {
-        cout << "Vertex " << i << " neighbors:";
+void Graph::mergeSort(vector<int>& followers, int l, int r) {
+    if (l < r) {
+        int m = l + (r - l) / 2;
 
-        for (const auto& neighbor : adjList[i]) {
-            cout << " " << neighbor;
+        mergeSort(followers, l, m);
+        mergeSort(followers, m + 1, r);
+
+        merge(followers, l, m, r);
+    }
+}
+
+void Graph::sortRichPeople() {
+    vector<int> userFollowersCount(V);
+    for (int i = 0; i < V; i++) {
+        userFollowersCount[i] = followers[i].size();
+    }
+
+    // Create an index vector and sort it based on followers count using merge sort
+    mergeSort(userFollowersCount, 0, V - 1);
+
+    // Now userFollowersCount contains indices of users sorted by followers count
+    // You can use this information as needed
+}
+
+void Graph::TopInfluencers(int TopSelected) {
+    cout << "Top " << TopSelected << " are:\n";
+    for (int i = 0; i < TopSelected; ++i) {
+        cout << "User " << i << " with " << followers[i].size() << " followers: ";
+        for (int follower : followers[i]) {
+            cout << follower << " ";
         }
-
         cout << endl;
     }
 }
 
-void RandomID2(ofstream& outputfile) {
-    int numAccounts = 60;
 
-    if (outputfile.is_open()) {
-        srand(static_cast<unsigned int>(time(0)));
-
-        set<int> uniqueIDs; // To keep track of generated IDs
-
-        for (int i = 0; i < numAccounts; ++i) {
-            int ID;
-            do {
-                ID = 1 + rand() % numAccounts;
-            } while (!uniqueIDs.insert(ID).second); // Ensure ID is unique
-
-            outputfile << ID << endl;  // Assuming each ID should be on a new line
-        }
-
-        outputfile.close();
-        cout << "Dummy IDs generated and saved to dummy_ids.txt." << endl;
-    } else {
-        cerr << "Unable to open file for writing." << endl;
-    }
-}
-
-bool binarySearch(const vector<int>& arr, int key) {
-    int left = 0;
-    int right = arr.size() - 1;
-
-    while (left <= right) {
-        int mid = left + (right - left) / 2;
-
-        if (arr[mid] == key) {
-            return true; // Key found
-        } else if (arr[mid] < key) {
-            left = mid + 1;
-        } else {
-            right = mid - 1;
-        }
-    }
-
-    return false; // Key not found
-}
-
-bool listSearch(const list<int>& lst, int key) {
-    for (const auto& item : lst) {
-        if (item == key) {
-            return true; // Key found
-        }
-    }
-    return false; // Key not found
-}
-
-bool binarySearch(const list<int>& lst, int key) {
-    return listSearch(lst, key);
-}
 int main() {
-    ifstream inputfile("dummy_ids.txt");
-    ofstream outputfile("dummy_ids.txt");
+    ifstream inputfile("twitter.csv");
 
-    // Generate random dummy IDs and save them to a file
-    RandomID2(outputfile);
+    int V;  // Assuming you need to read the number of vertices from the file
+    inputfile >> V;
 
-    vector<int> userIDs;
+    Graph graph(V);
 
-    // Read user IDs from the file and store them in a vector
-    if (inputfile.is_open()) {
-        int userID;
-        while (inputfile >> userID) {
-            userIDs.push_back(userID);
-        }
-        inputfile.close();
-    } else {
-        cerr << "Unable to open dummy_ids.txt for reading." << endl;
+    string line;
+    if (!inputfile.is_open()) {
+        cout << "Error opening file." << endl;
         return 1;
     }
+    else {
+        while (getline(inputfile, line)) {
+            stringstream ss(line);
+            string srcStr, dist;
+            getline(ss, srcStr, ',');
+            getline(ss, dist, ',');
+            int src = stoi(srcStr);
+            int dest = stoi(dist);
 
-    // Sort the userIDs vector
-    sort(userIDs.begin(), userIDs.end());
+            graph.addEdge(src, dest);
+        }
 
-    Graph userGraph(61);
+        inputfile.close();
+    }
 
-    srand(static_cast<unsigned int>(time(0)));
+    // Example of using sortRichPeople function
+    graph.sortRichPeople();
 
-    set<int> selectedUsers; // To keep track of selected user IDs
+    cout << "\n\nEnter Top followers you want to see\n";
+    int TopSelected;
+    cin >> TopSelected; // Added this line to read the user input
 
-    // Assuming you want to add some edges to represent "follow" relationships
- for (int j = 0; j < 1000; j++) {
-    int randomUser = userIDs[0 + rand() % (userIDs.size())];
-    int randomUser2 = userIDs[0 + rand() % (userIDs.size())];
-
-    // Check if the edge already exists in the graph
-// Check if the edge already exists in the graph
-if (randomUser != randomUser2 &&
-    !listSearch(userGraph.getAdjList(randomUser), randomUser2) &&
-    !listSearch(userGraph.getAdjList(randomUser2), randomUser)) {
-    userGraph.addEdge(randomUser, randomUser2);
-    selectedUsers.insert(randomUser);
-    selectedUsers.insert(randomUser2);
-}
-
-}
-
-
-    // Display the graph
-    userGraph.displayGraph();
+    graph.TopInfluencers(TopSelected);
 
     return 0;
 }
