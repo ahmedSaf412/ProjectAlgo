@@ -112,14 +112,9 @@ void Graph::sortRichPeople() {
 void Graph::TopInfluencers(int TopSelected) {
     cout << "Top " << TopSelected << " are:\n";
     for (int i = 0; i < TopSelected; ++i) {
-        cout << "User " << i << " with " << followers[i].size() << " followers: ";
-        for (int follower : followers[i]) {
-            cout << follower << " ";
-        }
-        cout << endl;
+        cout << "User " << followers.v << " with " << followers[i].size() << " followers";
     }
 }
-
 
 int main() {
     ifstream inputfile("twitter.csv");
