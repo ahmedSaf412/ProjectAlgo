@@ -13,6 +13,9 @@ public:
     void FollowReg(int follower, int followee) {
         adjacencyList[followee].push_back(follower);
     }
+    void Followings(int follower, int followee) {
+        adjacencyList2[follower].push_back(followee);
+    }
 
     const unordered_map<int, vector<int>>& getAdjacencyList() const {
         return adjacencyList;
@@ -20,25 +23,17 @@ public:
 
 private:
     unordered_map<int, vector<int>> adjacencyList;
+    unordered_map<int, vector<int>> adjacencyList2;
 };
 
-
-
-// Utility function to get the maximum value in a pair of integers
 int getMaxValue(const vector<pair<int, int>>& arr) {
     int maxVal = INT_MIN;
     for (const auto& pair : arr) {
         maxVal = max(maxVal, pair.first);
     }
-    /*for (int i{0}; i <= arr.size(); i++) {
-        maxVal=max(arr[i].first,arr[i+1].first);
-    }
-    */
     return maxVal;
 }
 
-
-// Radix sort implementation for pairs of integers
 void radix_sort(vector<pair<int, int>>& arr) {
     const int RADIX = 10;
     int exp = 1;
@@ -49,29 +44,23 @@ void radix_sort(vector<pair<int, int>>& arr) {
     while (maxVal / exp > 0) {
         int count[RADIX] = { 0 };
 
-        // Count the occurrences of each digit at the current exp
         for (int i = 0; i < n; i++)
             count[(arr[i].second / exp) % RADIX]++;
 
-        // Accumulate the count array
         for (int i = 1; i < RADIX; i++)
             count[i] += count[i - 1];
 
-        // Build the output array in reverse order to get descending order
         for (int i = 0; i < n; i++) {
             output[count[(arr[i].second / exp) % RADIX] - 1] = arr[i];
             count[(arr[i].second / exp) % RADIX]--;
         }
 
-        // Copy the output array to arr so that arr contains sorted numbers according to the current digit
         for (int i = 0; i < n; i++)
             arr[i] = output[i];
 
         exp *= RADIX;
     }
 }
-
-
 
 void readCSV(const string& filename, Graph& graph) {
     ifstream file(filename);
@@ -93,46 +82,47 @@ void readCSV(const string& filename, Graph& graph) {
         int to = stoi(followerStr);
 
         graph.FollowReg(from, to);
+        graph.Followings(to, from);
     }
 
     file.close();
 }
 
-vector<int> recommendFollowers(const unordered_map<int, vector<int>>& adjacencyList, int userId) {
-    unordered_set<int> followersSet;
+vector<pair<int, int>> recommendFollowee(int userID, const unordered_map<int, vector<int>>& adjacencyList) {
+    vector<pair<int, int>> frequencyOfUser;
 
-    // Get followers of the user
-    auto it = adjacencyList.find(userId);
-    if (it != adjacencyList.end()) {
-        followersSet.insert(it->second.begin(), it->second.end());
+    // Check if the userID exists in the adjacencyList
+    auto userIt = adjacencyList.find(userID);
+    if (userIt == adjacencyList.end()) {
+        cout << "User ID: " << userID << " not found in the graph." << endl;
+        return frequencyOfUser;  // Return an empty vector if user not found
     }
 
-    // Recommend followers based on common followers
-    unordered_map<int, int> commonFollowersCount;
-    for (const auto& follower : followersSet) {
-        // Use 'at()' instead of '[]' to access the inner vector
-        for (const auto& recommendedUser : adjacencyList.at(follower)) {
-            // Exclude users already followed
-            if (followersSet.find(recommendedUser) == followersSet.end()) {
-                commonFollowersCount[recommendedUser]++;
+    // Count the frequency of each followee of the given user
+    unordered_map<int, int> followeeCount;
+    for (int followee : userIt->second) {
+        auto followeeIt = adjacencyList.find(followee);
+        if (followeeIt != adjacencyList.end()) {
+            for (int user : followeeIt->second) {
+                // Check if user is not the given user and not already followed
+                if (user != userID && find(userIt->second.begin(), userIt->second.end(), user) == userIt->second.end()) {
+                    followeeCount[user]++;
+                }
             }
         }
     }
 
-    // Convert the unordered_map to a vector of pairs
-    vector<pair<int, int>> recommendedUsers(commonFollowersCount.begin(), commonFollowersCount.end());
-
-    // Sort recommended users by the number of common followers using radix sort
-    radix_sort(recommendedUsers);
-
-    // Extract recommended user IDs
-    vector<int> recommendedUserIds;
-    for (const auto& entry : recommendedUsers) {
-        recommendedUserIds.push_back(entry.first);
+    // Convert the followeeCount map to a vector of pairs
+    for (const auto& entry : followeeCount) {
+        frequencyOfUser.emplace_back(entry.first, entry.second);
     }
 
-    return recommendedUserIds;
+    // Sort the vector by the count of followees using radix sort
+    radix_sort(frequencyOfUser);
+
+    return frequencyOfUser;
 }
+
 
 vector<pair<int, int>> getTopFollowers(const unordered_map<int, vector<int>>& adjacencyList) {
     vector<pair<int, int>> followersCount;
@@ -146,7 +136,6 @@ vector<pair<int, int>> getTopFollowers(const unordered_map<int, vector<int>>& ad
 
     return followersCount;
 }
-
 
 int main() {
     Graph graph;
@@ -186,11 +175,11 @@ int main() {
     cout << "Enter the user ID for recommendations: ";
     cin >> userId;
 
-    vector<int> recommendedUsers = recommendFollowers(graph.getAdjacencyList(), userId);
+    vector<pair<int, int>> recommendedFollowees = recommendFollowee(userId, graph.getAdjacencyList());
 
-    cout << "Recommended users to follow:" << endl;
-    for (size_t i = 0; i < min(recommendedUsers.size(), static_cast<size_t>(10)); ++i) {
-        cout << "ID: " << recommendedUsers[i] << endl;
+    cout << "Recommended followees:" << endl;
+    for (size_t i = 0; i < min(recommendedFollowees.size(), static_cast<size_t>(10)); ++i) {
+        cout << "ID: " << recommendedFollowees[i].first << ", Count: " << recommendedFollowees[i].second << endl;
     }
 
     return 0;
