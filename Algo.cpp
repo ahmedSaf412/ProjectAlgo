@@ -1,157 +1,197 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
+#include <unordered_map>
+#include <unordered_set>
 #include <vector>
-#include <list>
-#include <algorithm> // Added for std::sort
-#include <string>
+#include <algorithm>
+
 using namespace std;
 
 class Graph {
-private:
-    // No. of vertices
-    int V;
-
-    // Pointer to an array containing adjacency lists
-    vector<list<int>> followings;
-    vector<list<int>> followers;
-
 public:
-    // Constructor
-    Graph(int V);
+    void FollowReg(int follower, int followee) {
+        adjacencyList[followee].push_back(follower);
+    }
 
-    // Function to add an edge to the graph
-    void addEdge(int src, int dist);
+    const unordered_map<int, vector<int>>& getAdjacencyList() const {
+        return adjacencyList;
+    }
 
-    // Function to sort rich people based on followers count
-    void sortRichPeople();
-    void mergeSort(vector<int>& followers, int l, int r);
-    void merge(vector<int>& followers, int l, int m, int r);
-
-    void TopInfluencers(int TopSelected);
+private:
+    unordered_map<int, vector<int>> adjacencyList;
 };
 
-Graph::Graph(int V) {
-    this->V = V;
-    followings.resize(V);
-    followers.resize(V);
+
+
+// Utility function to get the maximum value in a pair of integers
+int getMaxValue(const vector<pair<int, int>>& arr) {
+    int maxVal = INT_MIN;
+    for (const auto& pair : arr) {
+        maxVal = max(maxVal, pair.first);
+    }
+    /*for (int i{0}; i <= arr.size(); i++) {
+        maxVal=max(arr[i].first,arr[i+1].first);
+    }
+    */
+    return maxVal;
 }
 
-void Graph::addEdge(int src, int dist) {
-    // Add dist to src's list of followings
-    followings[src].push_back(dist);
-    // Add src to dist's list of followers
-    followers[dist].push_back(src);
-}
 
-void Graph::merge(vector<int>& followers, int l, int m, int r) {
-    int n1 = m - l + 1;
-    int n2 = r - m;
+// Radix sort implementation for pairs of integers
+void radix_sort(vector<pair<int, int>>& arr) {
+    const int RADIX = 10;
+    int exp = 1;
+    int n = arr.size();
+    vector<pair<int, int>> output(n);
+    int maxVal = getMaxValue(arr);
 
-    vector<int> L(n1), R(n2);
+    while (maxVal / exp > 0) {
+        int count[RADIX] = { 0 };
 
-    for (int i = 0; i < n1; i++) {
-        L[i] = followers[l + i];
-    }
+        // Count the occurrences of each digit at the current exp
+        for (int i = 0; i < n; i++)
+            count[(arr[i].second / exp) % RADIX]++;
 
-    for (int j = 0; j < n2; j++) {
-        R[j] = followers[m + 1 + j];
-    }
+        // Accumulate the count array
+        for (int i = 1; i < RADIX; i++)
+            count[i] += count[i - 1];
 
-    int i = 0, j = 0, k = l;
-
-    while (i < n1 && j < n2) {
-        if (L[i] >= R[j]) {
-            followers[k] = L[i];
-            i++;
+        // Build the output array in reverse order to get descending order
+        for (int i = 0; i < n; i++) {
+            output[count[(arr[i].second / exp) % RADIX] - 1] = arr[i];
+            count[(arr[i].second / exp) % RADIX]--;
         }
-        else {
-            followers[k] = R[j];
-            j++;
-        }
-        k++;
-    }
 
-    while (i < n1) {
-        followers[k] = L[i];
-        i++;
-        k++;
-    }
+        // Copy the output array to arr so that arr contains sorted numbers according to the current digit
+        for (int i = 0; i < n; i++)
+            arr[i] = output[i];
 
-    while (j < n2) {
-        followers[k] = R[j];
-        j++;
-        k++;
+        exp *= RADIX;
     }
 }
 
-void Graph::mergeSort(vector<int>& followers, int l, int r) {
-    if (l < r) {
-        int m = l + (r - l) / 2;
 
-        mergeSort(followers, l, m);
-        mergeSort(followers, m + 1, r);
 
-        merge(followers, l, m, r);
+void readCSV(const string& filename, Graph& graph) {
+    ifstream file(filename);
+    if (!file.is_open()) {
+        cerr << "Error opening the file.\n";
+        return;
     }
-}
-
-void Graph::sortRichPeople() {
-    vector<int> userFollowersCount(V);
-    for (int i = 0; i < V; i++) {
-        userFollowersCount[i] = followers[i].size();
-    }
-
-    // Create an index vector and sort it based on followers count using merge sort
-    mergeSort(userFollowersCount, 0, V - 1);
-
-    // Now userFollowersCount contains indices of users sorted by followers count
-    // You can use this information as needed
-}
-
-void Graph::TopInfluencers(int TopSelected) {
-    cout << "Top " << TopSelected << " are:\n";
-    for (int i = 0; i < TopSelected; ++i) {
-        cout << "User " << followers.v << " with " << followers[i].size() << " followers";
-    }
-}
-
-int main() {
-    ifstream inputfile("twitter.csv");
-
-    int V;  // Assuming you need to read the number of vertices from the file
-    inputfile >> V;
-
-    Graph graph(V);
 
     string line;
-    if (!inputfile.is_open()) {
-        cout << "Error opening file." << endl;
-        return 1;
+    while (getline(file, line)) {
+        stringstream ss(line);
+        string followerStr;
+        string followeeStr;
+
+        getline(ss, followeeStr, ',');
+        int from = stoi(followeeStr);
+
+        getline(ss, followerStr, ',');
+        int to = stoi(followerStr);
+
+        graph.FollowReg(from, to);
+    }
+
+    file.close();
+}
+
+vector<int> recommendFollowers(const unordered_map<int, vector<int>>& adjacencyList, int userId) {
+    unordered_set<int> followersSet;
+
+    // Get followers of the user
+    auto it = adjacencyList.find(userId);
+    if (it != adjacencyList.end()) {
+        followersSet.insert(it->second.begin(), it->second.end());
+    }
+
+    // Recommend followers based on common followers
+    unordered_map<int, int> commonFollowersCount;
+    for (const auto& follower : followersSet) {
+        // Use 'at()' instead of '[]' to access the inner vector
+        for (const auto& recommendedUser : adjacencyList.at(follower)) {
+            // Exclude users already followed
+            if (followersSet.find(recommendedUser) == followersSet.end()) {
+                commonFollowersCount[recommendedUser]++;
+            }
+        }
+    }
+
+    // Convert the unordered_map to a vector of pairs
+    vector<pair<int, int>> recommendedUsers(commonFollowersCount.begin(), commonFollowersCount.end());
+
+    // Sort recommended users by the number of common followers using radix sort
+    radix_sort(recommendedUsers);
+
+    // Extract recommended user IDs
+    vector<int> recommendedUserIds;
+    for (const auto& entry : recommendedUsers) {
+        recommendedUserIds.push_back(entry.first);
+    }
+
+    return recommendedUserIds;
+}
+
+vector<pair<int, int>> getTopFollowers(const unordered_map<int, vector<int>>& adjacencyList) {
+    vector<pair<int, int>> followersCount;
+
+    for (const auto& entry : adjacencyList) {
+        followersCount.emplace_back(entry.first, entry.second.size());
+    }
+
+    // Sort followers count by the number of followers using radix sort
+    radix_sort(followersCount);
+
+    return followersCount;
+}
+
+
+int main() {
+    Graph graph;
+    readCSV("twitter.csv", graph);
+
+    cout << "Graph created successfully." << endl;
+
+    // Get user input for the number of top users to be shown
+    int topUsersCount;
+    cout << "Enter the number of top users to be shown: ";
+    cin >> topUsersCount;
+
+    const auto topFollowers = getTopFollowers(graph.getAdjacencyList());
+
+    cout << "Top people with most followers:" << endl;
+    for (size_t i = 0; i < min(topFollowers.size(), static_cast<size_t>(topUsersCount)); ++i) {
+        cout << "ID: " << topFollowers[i].first << ", Followers: " << topFollowers[i].second << endl;
+    }
+
+    // Get user input for which user to display followers count
+    int userIdToCheck;
+    cout << "Enter the user ID to check followers count: ";
+    cin >> userIdToCheck;
+
+    // Check if the entered user ID is valid
+    auto userIt = graph.getAdjacencyList().find(userIdToCheck);
+    if (userIt != graph.getAdjacencyList().end()) {
+        // Display the number of followers for the entered user
+        cout << "User ID: " << userIdToCheck << " has " << userIt->second.size() << " followers." << endl;
     }
     else {
-        while (getline(inputfile, line)) {
-            stringstream ss(line);
-            string srcStr, dist;
-            getline(ss, srcStr, ',');
-            getline(ss, dist, ',');
-            int src = stoi(srcStr);
-            int dest = stoi(dist);
-
-            graph.addEdge(src, dest);
-        }
-
-        inputfile.close();
+        cout << "User ID: " << userIdToCheck << " not found in the graph." << endl;
     }
 
-    // Example of using sortRichPeople function
-    graph.sortRichPeople();
+    // Get user input for which user to provide recommendations
+    int userId;
+    cout << "Enter the user ID for recommendations: ";
+    cin >> userId;
 
-    cout << "\n\nEnter Top followers you want to see\n";
-    int TopSelected;
-    cin >> TopSelected; // Added this line to read the user input
+    vector<int> recommendedUsers = recommendFollowers(graph.getAdjacencyList(), userId);
 
-    graph.TopInfluencers(TopSelected);
+    cout << "Recommended users to follow:" << endl;
+    for (size_t i = 0; i < min(recommendedUsers.size(), static_cast<size_t>(10)); ++i) {
+        cout << "ID: " << recommendedUsers[i] << endl;
+    }
 
     return 0;
 }
